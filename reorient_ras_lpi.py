@@ -3,21 +3,6 @@ sunaguo 2023.08.21
 adapted from https://github.com/brainlife/app-tractanalysisprofiles/blob/dipy-1.0/tractAnalysisProfilesDipy.py
 """
 
-import os
-import numpy as np
-import matplotlib.pyplot as plt
-
-import sklearn
-import dipy
-import nibabel as nib
-import scipy.io as sio
-from dipy.io.streamline import load_tractogram
-import dipy.tracking.streamline as dts
-from dipy.segment.clustering import QuickBundles
-from dipy.segment.metric import AveragePointwiseEuclideanMetric
-## udpated in dipy 1.5.0: https://dipy.org/documentation/1.7.0/api_changes/
-from dipy.segment.featurespeed import ResampleFeature
-
 def generateRAScentroid(centroid_cluster):
 
 	import numpy as np
@@ -33,7 +18,21 @@ def generateRAScentroid(centroid_cluster):
 
 	return centroid_cluster
 
-def reorient():
+def reorient(reference_anat_path,streamlines_path,classification_path,n_points,new_streamlines_outpath):
+
+    import numpy as np
+    from copy import deepcopy as dc
+
+    import nibabel as nib
+    import scipy.io as sio
+    from dipy.io.streamline import load_tractogram, save_tractogram
+    from dipy.io.stateful_tractogram import StatefulTractogram as sft
+    import dipy.tracking.streamline as dts
+    from dipy.segment.clustering import QuickBundles
+    from dipy.segment.metric import AveragePointwiseEuclideanMetric
+    from dipy.segment.metric import ResampleFeature
+    # ## udpated for dipy>=1.5.0: https://dipy.org/documentation/1.7.0/api_changes/
+    # from dipy.segment.featurespeed import ResampleFeature
 
     ## ===== load stuff for init
     # load reference anatomy (dwi)
@@ -56,14 +55,8 @@ def reorient():
     feature = ResampleFeature(nb_points=n_points)
     metric = AveragePointwiseEuclideanMetric(feature)
 
-    # tracts
-    tracts = {}
-    images_json = {}
-    images_json['images'] = []
-
-    # error messages
-    failed_tracts = np.array([])
-    failed_tracts_lows = np.array([])
+    ## to save new/potentially flipped streamlines
+    new_streamlines = dc(streamlines.streamlines)
 
     for tii, tname in enumerate(names): 
         tract_indices = np.where(indices==(tii+1))[0]
@@ -79,70 +72,36 @@ def reorient():
         centroid_cluster = tract_cluster.centroids[0]
         centroid_cluster_ras = generateRAScentroid(centroid_cluster)
         oriented_tract = dts.orient_by_streamline(fg,centroid_cluster_ras)
+	
+        ## store
+        new_streamlines[tract_indices] = oriented_tract
 
-        ## ===== save thing back to orignal format
-
-    pass
+    ## ===== save things back to orignal format
+    new_tck = sft(new_streamlines, space=streamlines.space, reference=ref_anat)
+    save_tractogram(new_tck, new_streamlines_outpath)
 
 
 
 if __name__ == '__main__':
 
-	import os,sys
+	import os
 	import json
 
 	# load config
 	with open('config.json','r') as config_f:
 		config = json.load(config_f)
 
-	# make output directories
-	if not os.path.exists('./images'):
-		os.mkdir('./images')
-	if not os.path.exists('./profiles'):
-		os.mkdir('./profiles')
-	if not os.path.exists('./tractmeasures'):
-		os.mkdir('./tractmeasures')
+	# make output directory
+	out_path = './tract_oriented'
+	if not os.path.exists(out_path):
+		os.mkdir(out_path)
+	out_path += '/tract.tck'
 
 	# define paths and variables
-	subjectID = config['_inputs'][0]['meta']['subject']
+	# subjectID = config['_inputs'][0]['meta']['subject']
 	streamlines_path = config['track']
 	classification_path = config['classification']
 	reference_anat_path = config['dwi']
 	n_points = config['num_nodes']
 
-	out_path = './'
-
-	# loop through measures to create measures_path
-	df_measures = []
-	
-	# dti
-	fa = config['fa']
-	if os.path.isfile(fa):
-		df_measures = df_measures+['ad','fa','md','rd']
-
-	# dki
-	ga = config['ga']
-	if os.path.isfile(ga):
-		df_measures = df_measures+['ga','ak','mk','rk']
-
-	# noddi
-	if 'odi' in config:
-		odi = config['odi']
-		if os.path.isfile(odi):
-			df_measures = df_measures+['ndi','odi','isovf']
-		
-	# myelin-map
-	if 'myelin' in config:
-		myelin = config['myelin']
-		if os.path.isfile(myelin):
-			df_measures = df_measures+['myelin']
-		
-	# qmri
-	if 'T1' in config:
-		qmri = ["T1","R1","M0","PD","MTV","VIP","SIR","WF"]
-		for i in qmri:
-			test_met = config[i]
-			if os.path.isfile(test_met):
-				df_measures = df_measures+[i]
-	
-	measure_path = [ config[f] for f in df_measures ]
+	reorient(reference_anat_path,streamlines_path,classification_path,n_points,out_path)
