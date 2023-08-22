@@ -2,5 +2,4 @@
     "dwi":  "./testdata/dwi/dwi.nii.gz",
     "classification": "./testdata/afq/classification.mat",
     "track": "./testdata/tck/track.tck",
-    "num_nodes": 100
 }

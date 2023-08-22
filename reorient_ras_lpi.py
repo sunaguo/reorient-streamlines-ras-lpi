@@ -102,7 +102,7 @@ def main():
 	streamlines_path = config['track']
 	classification_path = config['classification']
 	reference_anat_path = config['dwi']
-	n_points = config['num_nodes']
+	n_points = 100
 
 	reorient(reference_anat_path,streamlines_path,classification_path,n_points,out_path)
 
