@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 sunaguo 2023.08.21
 adapted from https://github.com/brainlife/app-tractanalysisprofiles/blob/dipy-1.0/tractAnalysisProfilesDipy.py
