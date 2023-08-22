@@ -80,10 +80,8 @@ def reorient(reference_anat_path,streamlines_path,classification_path,n_points,n
     new_tck = sft(new_streamlines, space=streamlines.space, reference=ref_anat)
     save_tractogram(new_tck, new_streamlines_outpath)
 
-
-
-if __name__ == '__main__':
-
+def main():
+	
 	import os
 	import json
 
@@ -105,3 +103,7 @@ if __name__ == '__main__':
 	n_points = config['num_nodes']
 
 	reorient(reference_anat_path,streamlines_path,classification_path,n_points,out_path)
+
+
+if __name__ == '__main__':
+    main()
