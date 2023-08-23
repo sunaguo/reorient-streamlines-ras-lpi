@@ -95,7 +95,7 @@ def main():
 	out_path = './tract_oriented'
 	if not os.path.exists(out_path):
 		os.mkdir(out_path)
-	out_path += '/tract.tck'
+	out_path += '/track.tck'
 
 	# define paths and variables
 	# subjectID = config['_inputs'][0]['meta']['subject']
