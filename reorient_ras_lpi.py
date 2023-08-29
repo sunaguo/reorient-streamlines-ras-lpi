@@ -84,32 +84,35 @@ def reorient(reference_anat_path,streamlines_path,classification_path,n_points,n
     print("saving oriented streamlines")
     new_tck = sft(new_streamlines, space=streamlines.space, reference=ref_anat)
     print(f"outpath: {new_streamlines_outpath}")
-    save_tractogram(new_tck, new_streamlines_outpath)
+    res = save_tractogram(new_tck, new_streamlines_outpath)  ## supposed to return True if successful
+    print(f"saving tck success {res}")
+    return res
+    
 
 def main():
 	
-	import os
-	import json
+    import os
+    import json
 
-	# load config
-	with open('config.json','r') as config_f:
-		config = json.load(config_f)
+    # load config
+    with open('config.json','r') as config_f:
+        config = json.load(config_f)
 
-	# make output directory
-	out_path = './tract_oriented'
-	if not os.path.exists(out_path):
-		os.mkdir(out_path)
-	out_path += '/track.tck'
+    # make output directory
+    out_path = './track_oriented'
+    if not os.path.exists(out_path):
+        os.mkdir(out_path)
+    out_path += '/track.tck'
 
-	# define paths and variables
-	# subjectID = config['_inputs'][0]['meta']['subject']
-	streamlines_path = config['track']
-	classification_path = config['classification']
-	reference_anat_path = config['dwi']
-	n_points = 100
+    # define paths and variables
+    # subjectID = config['_inputs'][0]['meta']['subject']
+    streamlines_path = config['track']
+    classification_path = config['classification']
+    reference_anat_path = config['dwi']
+    n_points = 100
 
-	reorient(reference_anat_path,streamlines_path,classification_path,n_points,out_path)
-
+    res = reorient(reference_anat_path,streamlines_path,classification_path,n_points,out_path)
+    print(f"in main with {res} saving")
 
 if __name__ == '__main__':
     main()
