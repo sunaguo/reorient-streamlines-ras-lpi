@@ -49,6 +49,7 @@ def reorient(reference_anat_path,streamlines_path,classification_path,n_points,n
     print('loading classification')
     classification = sio.loadmat(classification_path)
 
+    print("loading extra helper vars")
     # extract names and indices from classification
     names = list(np.ravel(list(classification['classification'][0]['names'][0][0])))
     indices = classification['classification'][0]['index'][0][0]
@@ -60,6 +61,7 @@ def reorient(reference_anat_path,streamlines_path,classification_path,n_points,n
     ## to save new/potentially flipped streamlines
     new_streamlines = dc(streamlines.streamlines)
 
+    print("looping through all streamlines")
     for tii, tname in enumerate(names): 
         tract_indices = np.where(indices==(tii+1))[0]
         fg = streamlines.streamlines[tract_indices]
@@ -79,7 +81,9 @@ def reorient(reference_anat_path,streamlines_path,classification_path,n_points,n
         new_streamlines[tract_indices] = oriented_tract
 
     ## ===== save things back to orignal format
+    print("saving oriented streamlines")
     new_tck = sft(new_streamlines, space=streamlines.space, reference=ref_anat)
+    print(f"outpath: {new_streamlines_outpath}")
     save_tractogram(new_tck, new_streamlines_outpath)
 
 def main():
