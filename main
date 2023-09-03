@@ -6,7 +6,7 @@
 #singularity exec -e docker://bacaron/athlete-brain-container:v1.1 ./tractAnalysisProfilesDipy.py
 SINGULARITYENV_PYTHONNOUSERSITE=true singularity exec -e docker://brainlife/pyafq:dev ./reorient_ras_lpi.py
 
-if [ ! -f ./track_oriented/track.tck ]; then
+if [ ! -d ./rois_relabeled ]; then
     echo "something failed. checked logs"
     exit 1
 else

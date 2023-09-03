@@ -1,118 +1,93 @@
 #!/usr/bin/env python3
 
 """
-sunaguo 2023.08.21
-adapted from https://github.com/brainlife/app-tractanalysisprofiles/blob/dipy-1.0/tractAnalysisProfilesDipy.py
+sunaguo 2023.09.03
+to fix ras/lpi inconsistency between subj in MDLFang, MDLFslp, and Uncinate
 """
 
-def generateRAScentroid(centroid_cluster):
 
-	import numpy as np
+def relabel(fdir):
 
-	[x_diff, y_diff, z_diff] = np.diff([centroid_cluster[:,0],centroid_cluster[:,1],centroid_cluster[:,2]])
-	[x_diff, y_diff, z_diff] = [np.append(x_diff,[centroid_cluster[0,0] - centroid_cluster[-1,0]]),np.append(y_diff,[centroid_cluster[0,1] - centroid_cluster[-1,1]]),np.append(z_diff,[centroid_cluster[0,2] - centroid_cluster[-1,2]])]
-	[x_diff_max, y_diff_max, z_diff_max] = [np.max(np.absolute(x_diff)),np.max(np.absolute(y_diff)),np.max(np.absolute(z_diff))]
-
-	max_dim = np.where([x_diff_max,y_diff_max,z_diff_max] == np.max([x_diff_max,y_diff_max,z_diff_max]))[0][0]
-
-	if centroid_cluster[0,max_dim] < centroid_cluster[-1,max_dim]:
-		centroid_cluster = np.flip(centroid_cluster,0)
-
-	return centroid_cluster
-
-def reorient(reference_anat_path,streamlines_path,classification_path,n_points,new_streamlines_outpath):
-
+    import glob
     import numpy as np
-    from copy import deepcopy as dc
 
     import nibabel as nib
-    import scipy.io as sio
-    from dipy.io.streamline import load_tractogram, save_tractogram
-    from dipy.io.stateful_tractogram import StatefulTractogram as sft
-    import dipy.tracking.streamline as dts
-    from dipy.segment.clustering import QuickBundles
-    from dipy.segment.metric import AveragePointwiseEuclideanMetric
-    from dipy.segment.metric import ResampleFeature
-    # ## udpated for dipy>=1.5.0: https://dipy.org/documentation/1.7.0/api_changes/
-    # from dipy.segment.featurespeed import ResampleFeature
 
-    ## ===== load stuff for init
-    # load reference anatomy (dwi)
-    print('loading reference anatomy')
-    ref_anat = nib.load(reference_anat_path)
+    def get_center(img):
+        d = img.get_fdata()
+        xs, ys, zs = np.where(d)
+        return xs.mean(), ys.mean(), zs.mean()
 
-    # load tractogram
-    print('loading tractogram')
-    streamlines = load_tractogram(streamlines_path,ref_anat)
+    for tname in ["MDLFang", "MDLFspl", "Uncinate"]:
+        print(f"====={tname}=====")
+        fnames = {}
+        imgs = {}
 
-    # load classification
-    print('loading classification')
-    classification = sio.loadmat(classification_path)
+        for fn in glob.glob(f"{fdir}/*"):
+            if ((f"left{tname}" in fn) and ("RAS" in fn)):
+                # print(fn)
+                imgs["lras"] = nib.load(fn)
+                fnames["lras"] = fn
+            elif ((f"left{tname}" in fn) and ("LPI" in fn)):
+                # print(fn)
+                imgs["llpi"] = nib.load(fn)
+                fnames["llpi"] = fn
+            elif ((f"right{tname}" in fn) and ("RAS" in fn)):
+                # print(fn)
+                imgs["rras"] = nib.load(fn)
+                fnames["rras"] = fn
+            elif ((f"right{tname}" in fn) and ("LPI" in fn)):
+                # print(fn)
+                imgs["rlpi"] = nib.load(fn)
+                fnames["rlpi"] = fn
+        if len(imgs) < 4: 
+            raise Exception(f"missing data for {tname} (only loaded {list(imgs.keys())}). Aborted.")
+        
+        centers = {tlab: get_center(img) for tlab, img in imgs.items()}
+        for lab, cs in centers.items():
+            print(lab, cs)
 
-    print("loading extra helper vars")
-    # extract names and indices from classification
-    names = list(np.ravel(list(classification['classification'][0]['names'][0][0])))
-    indices = classification['classification'][0]['index'][0][0]
+        ## sanity check: left x > right x
+        print("=== Sanity check: left x > right x ===")
+        for llab in ["lras", "llpi"]:
+            for rlab in ["rras", "rlpi"]:
+                if centers[llab][0] < centers[rlab][0]:
+                    raise Exception(f"{llab} {rlab} failed: data in different coordinates. Aborted.")
+        print("passed")
 
-    # define metrics to use for reorienting streamlines using quickbundles 
-    feature = ResampleFeature(nb_points=n_points)
-    metric = AveragePointwiseEuclideanMetric(feature)
+        ## check y: ras y > lpi y
+        print(f"=== Checking ras y > lpi y & swapping ras/lpi ===")
+        for raslab, lpilab in [["lras", "llpi"], ["rras", "rlpi"]]:
+            print(raslab, lpilab)
+            if centers[raslab][1] > centers[lpilab][1]:
+                print("True")
+            else: 
+                rasfn = fnames[raslab]
+                lpifn = fnames[lpilab]
+                tempfn = f"{fdir}/temp"
+                print("reveresing fnames")
+                os.rename(rasfn, tempfn)
+                os.rename(lpifn, rasfn)
+                os.rename(tempfn, lpifn)
 
-    ## to save new/potentially flipped streamlines
-    new_streamlines = dc(streamlines.streamlines)
-
-    print("looping through all streamlines")
-    for tii, tname in enumerate(names): 
-        tract_indices = np.where(indices==(tii+1))[0]
-        fg = streamlines.streamlines[tract_indices]
-
-        ## ===== reorient for RAS/LPI
-        # reorient streamlines to match orientation of first streamline. then compute centroid
-        fg_oriented = dts.orient_by_streamline(fg,fg[0])
-
-        # run quickbundles, find centroid, and reorient streamlines
-        qb = QuickBundles(np.inf,metric=metric)
-        tract_cluster = qb.cluster(fg_oriented)
-        centroid_cluster = tract_cluster.centroids[0]
-        centroid_cluster_ras = generateRAScentroid(centroid_cluster)
-        oriented_tract = dts.orient_by_streamline(fg,centroid_cluster_ras)
-	
-        ## store
-        new_streamlines[tract_indices] = oriented_tract
-
-    ## ===== save things back to orignal format
-    print("saving oriented streamlines")
-    new_tck = sft(new_streamlines, space=streamlines.space, reference=ref_anat)
-    print(f"outpath: {new_streamlines_outpath}")
-    res = save_tractogram(new_tck, new_streamlines_outpath)  ## supposed to return True if successful
-    print(f"saving tck success {res}")
-    return res
+    return True
     
-
-def main():
 	
-    import os
+if __name__ == '__main__':
+
+    import os, shutil
     import json
 
     # load config
     with open('config.json','r') as config_f:
         config = json.load(config_f)
 
-    # make output directory
-    out_path = './track_oriented'
-    if not os.path.exists(out_path):
-        os.mkdir(out_path)
-    out_path += '/track.tck'
-
     # define paths and variables
-    # subjectID = config['_inputs'][0]['meta']['subject']
-    streamlines_path = config['track']
-    classification_path = config['classification']
-    reference_anat_path = config['dwi']
-    n_points = 100
+    roisdir = config['rois']
 
-    res = reorient(reference_anat_path,streamlines_path,classification_path,n_points,out_path)
-    print(f"in main with {res} saving")
+    # make output directory
+    out_path = './rois_relabeled'
+    if not os.path.exists(out_path):
+        shutil.copytree(roisdir, out_path)
 
-if __name__ == '__main__':
-    main()
+    res = relabel(out_path)
