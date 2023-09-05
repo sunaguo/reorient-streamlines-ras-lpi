@@ -86,8 +86,10 @@ if __name__ == '__main__':
     roisdir = config['rois']
 
     # make output directory
-    out_path = './rois_relabeled'
+    out_path = './rois_relabeled/'
     if not os.path.exists(out_path):
-        shutil.copytree(roisdir, out_path)
+        os.mkdir(out_path)
+    out_path += "rois/"
+    shutil.copytree(roisdir, out_path)
 
     res = relabel(out_path)
