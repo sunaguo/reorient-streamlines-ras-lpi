@@ -4,7 +4,7 @@
 sunaguo 2023.09.03
 to fix ras/lpi inconsistency between subj in MDLFang, MDLFslp, and Uncinate
 """
-
+## TODO: define major orientation for all tracts for consistency
 
 def relabel(fdir):
 
@@ -16,9 +16,17 @@ def relabel(fdir):
     def get_center(img):
         d = img.get_fdata()
         xs, ys, zs = np.where(d)
-        return xs.mean(), ys.mean(), zs.mean()
+        return {"x": xs.mean(), "y": ys.mean(), "z": zs.mean()}
+    
+    ## define the major orientation of the tracts
+    tract_orientations = {
+        "MDLFang":"y", 
+        "MDLFspl":"y", 
+        "Uncinate":"y", 
+        "Aslant":"z"
+    }
 
-    for tname in ["MDLFang", "MDLFspl", "Uncinate"]:
+    for tname, orientation in tract_orientations.items():
         print(f"====={tname}=====")
         fnames = {}
         imgs = {}
@@ -48,18 +56,18 @@ def relabel(fdir):
             print(lab, cs)
 
         ## sanity check: left x > right x
-        print("=== Sanity check: left x > right x ===")
+        print("=== Sanity check: left x > right x for all left/right pairs ===")
         for llab in ["lras", "llpi"]:
             for rlab in ["rras", "rlpi"]:
-                if centers[llab][0] < centers[rlab][0]:
+                if centers[llab]["x"] < centers[rlab]["x"]:
                     raise Exception(f"{llab} {rlab} failed: data in different coordinates. Aborted.")
         print("passed")
 
         ## check y: ras y > lpi y
-        print(f"=== Checking ras y > lpi y & swapping ras/lpi ===")
+        print(f"=== Checking ras {orientation} > lpi {orientation} & swapping ras/lpi ===")
         for raslab, lpilab in [["lras", "llpi"], ["rras", "rlpi"]]:
             print(raslab, lpilab)
-            if centers[raslab][1] > centers[lpilab][1]:
+            if centers[raslab][orientation] > centers[lpilab][orientation]:
                 print("True")
             else: 
                 rasfn = fnames[raslab]
