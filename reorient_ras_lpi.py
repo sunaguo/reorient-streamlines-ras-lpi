@@ -3,6 +3,13 @@
 """
 sunaguo 2023.09.03
 to fix ras/lpi inconsistency between subj in MDLFang, MDLFslp, and Uncinate
+
+Note: 
+xyz follow dwi volume orientation.
+(orientation: small - big)
+x: R - L
+y: S - I (vertical)
+z: P - A (horizontal)
 """
 ## TODO: define major orientation for all tracts for consistency
 
@@ -18,12 +25,22 @@ def relabel(fdir):
         xs, ys, zs = np.where(d)
         return {"x": xs.mean(), "y": ys.mean(), "z": zs.mean()}
     
+    def swap_fnames(rasfn, lpifn):
+        print("swapping ras/lpi")
+
+        tempfn = f"{fdir}/temp"
+        print("reveresing fnames")
+        os.rename(rasfn, tempfn)
+        os.rename(lpifn, rasfn)
+        os.rename(tempfn, lpifn)
+
+    
     ## define the major orientation of the tracts
     tract_orientations = {
         "MDLFang":"y", 
         "MDLFspl":"y", 
-        "Uncinate":"y", 
-        "Aslant":"z"
+        "Uncinate":"z", 
+        "Aslant":"y"
     }
 
     for tname, orientation in tract_orientations.items():
@@ -50,7 +67,7 @@ def relabel(fdir):
                 fnames["rlpi"] = fn
         if len(imgs) < 4: 
             raise Exception(f"missing data for {tname} (only loaded {list(imgs.keys())}). Aborted.")
-        
+
         centers = {tlab: get_center(img) for tlab, img in imgs.items()}
         for lab, cs in centers.items():
             print(lab, cs)
@@ -63,21 +80,33 @@ def relabel(fdir):
                     raise Exception(f"{llab} {rlab} failed: data in different coordinates. Aborted.")
         print("passed")
 
-        ## check y: ras y > lpi y
-        print(f"=== Checking ras {orientation} > lpi {orientation} & swapping ras/lpi ===")
-        for raslab, lpilab in [["lras", "llpi"], ["rras", "rlpi"]]:
-            print(raslab, lpilab)
-            if centers[raslab][orientation] > centers[lpilab][orientation]:
-                print("True")
-            else: 
-                rasfn = fnames[raslab]
-                lpifn = fnames[lpilab]
-                tempfn = f"{fdir}/temp"
-                print("reveresing fnames")
-                os.rename(rasfn, tempfn)
-                os.rename(lpifn, rasfn)
-                os.rename(tempfn, lpifn)
-
+        ## check each major orientation
+        print(f"=== Checking ras {orientation} > lpi {orientation} ===")
+        if orientation == "y": 
+            ## y: S - I (vertical) --> ras < lpi
+            
+            for raslab, lpilab in [["lras", "llpi"], ["rras", "rlpi"]]:
+                print(raslab, lpilab)
+                if centers[raslab][orientation] < centers[lpilab][orientation]:
+                    print("True")
+                else: 
+                    print("swapping ras/lpi ")
+                    rasfn = fnames[raslab]
+                    lpifn = fnames[lpilab]
+                    swap_fnames(rasfn, lpifn)
+            
+        if orientation == "z": 
+            ## z: P - A (horizontal) --> ras > lpi
+            
+            for raslab, lpilab in [["lras", "llpi"], ["rras", "rlpi"]]:
+                print(raslab, lpilab)
+                if centers[raslab][orientation] > centers[lpilab][orientation]:
+                    print("True")
+                else: 
+                    print("swapping ras/lpi ")
+                    rasfn = fnames[raslab]
+                    lpifn = fnames[lpilab]
+                    swap_fnames(rasfn, lpifn)
     return True
     
 	
