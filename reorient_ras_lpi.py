@@ -5,12 +5,13 @@ sunaguo 2023.09.03
 to fix ras/lpi inconsistency between subj in MDLFang, MDLFslp, and Uncinate
 
 sunaguo 2024.07.12
+sunaguo 2025.03.11 
 Note: 
-xyz follow dwi volume orientation.
-(orientation: small - big)
-x: R - L
-y: S - I (vertical)
-z: P - A (horizontal)
+# xyz follow dwi volume orientation.
+(orientation: small -> big)
+x: R -> L
+y: A -> P 
+z: I -> S
 """
 ## TODO: define major orientation for all tracts for consistency
 
@@ -35,39 +36,46 @@ def relabel(fdir):
         os.rename(lpifn, rasfn)
         os.rename(tempfn, lpifn)
 
+    def load_imgs(tname):
+        fnames = {}
+        imgs = {}
+        # if "CC" in tname: 
+        #     fnames["lpi"] = glob.glob(f"{fdir}/{tname}*LPI*")[0]
+        #     fnames["ras"] = glob.glob(f"{fdir}/{tname}*RAS*")[0]
+        #     print(fnames)
+        #     imgs["lpi"] = nib.load(fnames["lpi"])
+        #     imgs["ras"] = nib.load(fnames["ras"])
+        #     if len(imgs) < 2: 
+        #         raise Exception(f"missing data for {tname} (only loaded {list(imgs.keys())}). Aborted.")
+            
+        # else: 
+        fnames["llpi"] = glob.glob(f"{fdir}/left{tname}*LPI*")[0]
+        fnames["lras"] = glob.glob(f"{fdir}/left{tname}*RAS*")[0]
+        fnames["rlpi"] = glob.glob(f"{fdir}/right{tname}*LPI*")[0]
+        fnames["rras"] = glob.glob(f"{fdir}/right{tname}*RAS*")[0]
+        print(fnames)
+        imgs["llpi"] = nib.load(fnames["llpi"])
+        imgs["lras"] = nib.load(fnames["lras"])
+        imgs["rlpi"] = nib.load(fnames["rlpi"])
+        imgs["rras"] = nib.load(fnames["rras"])
+        if len(imgs) < 4: 
+            raise Exception(f"missing data for {tname} (only loaded {list(imgs.keys())}). Aborted.")
+
+        return imgs, fnames
+
     
     ## define the major orientation of the tracts
     tract_orientations = {
-        "MDLFang":"y", 
-        "MDLFspl":"y", 
-        "Uncinate":"z", 
-        "Aslant":"y"
+        "MDLFang":"z", 
+        "MDLFspl":"z", 
+        "Uncinate":"y", 
+        "Aslant":"z",
     }
 
     for tname, orientation in tract_orientations.items():
         print(f"====={tname}=====")
-        fnames = {}
-        imgs = {}
 
-        for fn in glob.glob(f"{fdir}/*"):
-            if ((f"left{tname}" in fn) and ("RAS" in fn)):
-                # print(fn)
-                imgs["lras"] = nib.load(fn)
-                fnames["lras"] = fn
-            elif ((f"left{tname}" in fn) and ("LPI" in fn)):
-                # print(fn)
-                imgs["llpi"] = nib.load(fn)
-                fnames["llpi"] = fn
-            elif ((f"right{tname}" in fn) and ("RAS" in fn)):
-                # print(fn)
-                imgs["rras"] = nib.load(fn)
-                fnames["rras"] = fn
-            elif ((f"right{tname}" in fn) and ("LPI" in fn)):
-                # print(fn)
-                imgs["rlpi"] = nib.load(fn)
-                fnames["rlpi"] = fn
-        if len(imgs) < 4: 
-            raise Exception(f"missing data for {tname} (only loaded {list(imgs.keys())}). Aborted.")
+        imgs, fnames = load_imgs(tname)
 
         centers = {tlab: get_center(img) for tlab, img in imgs.items()}
         for lab, cs in centers.items():
